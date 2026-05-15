@@ -36,18 +36,18 @@ client.on('auth_failure', (msg) => {
 client.initialize();
 
 // 2. Rota que o botão do GitHub Pages vai acionar
-app.post('/enviar-ajuda', async (req, range) => {
+// CORRIGIDO: Mudou 'range' para 'res'
+app.post('/enviar-ajuda', async (req, res) => {
     const numeros = ['5551989670061', '555130448527'];
     const mensagemAjuda = "🚨 ALERTA: Pedido de ajuda disparado pelo sistema de emergência!";
 
     try {
         for (let numero of numeros) {
-            // O whatsapp-web.js exige o sufixo @c.us no final do número
             const chatId = `${numero}@c.us`;
             await client.sendMessage(chatId, mensagemAjuda);
             console.log(`Mensagem enviada para: ${numero}`);
         }
-        return res.status(200).json({ status: "Sucesso", mensagem: "Alertas enviados!" });
+        return res.status(200).json({ status: "Sucesso", message: "Alertas enviados!" });
     } catch (error) {
         console.error("Erro ao enviar mensagem:", error);
         return res.status(500).json({ status: "Erro", detalhe: error.message });
