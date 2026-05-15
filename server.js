@@ -4,47 +4,62 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 
 const app = express();
-app.use(cors()); // Permite que o GitHub Pages acesse esta API
+app.use(cors()); 
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// 1. Inicialização do Cliente WhatsApp com configurações para o Render
+// Variável de controlo para verificar o estado da conexão
+let whatsappPronto = false;
+
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
         headless: true,
-        // Flags obrigatórias para rodar em servidores Linux como o Render
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
     }
 });
 
-// Exibe o QR Code no terminal (Você vai escanear pelo painel do Render)
 client.on('qr', (qr) => {
     console.log('--- ESCANEIE O QR CODE ABAIXO NO SEU WHATSAPP ---');
     qrcode.generate(qr, { small: true });
+    whatsappPronto = false; // Se gerou QR Code, ainda não está pronto
 });
 
 client.on('ready', () => {
     console.log('✅ WhatsApp conectado e pronto para enviar mensagens!');
+    whatsappPronto = true; // Conexão estabelecida com sucesso
 });
 
 client.on('auth_failure', (msg) => {
     console.error('❌ Falha na autenticação:', msg);
+    whatsappPronto = false;
+});
+
+client.on('disconnected', (reason) => {
+    console.log('❌ WhatsApp foi desconectado:', reason);
+    whatsappPronto = false;
 });
 
 client.initialize();
 
-// 2. Rota que o botão do GitHub Pages vai acionar
-// CORRIGIDO: Mudou 'range' para 'res'
+// Rota de Emergência
 app.post('/enviar-ajuda', async (req, res) => {
+    // 1. Validação de Segurança: Se não estiver conectado, não tenta enviar
+    if (!whatsappPronto) {
+        return res.status(503).json({ 
+            status: "Erro", 
+            detalhe: "O servidor do WhatsApp não está conectado. Certifique-se de que escaneou o QR Code nos logs do Render." 
+        });
+    }
+
     const numeros = ['5551989670061', '555130448527'];
     const mensagemAjuda = "🚨 ALERTA: Pedido de ajuda disparado pelo sistema de emergência!";
 
     try {
         for (let numero of numeros) {
             const chatId = `${numero}@c.us`;
-            await client.sendMessage(chatId, mensagemAjuda);
+            await client.sendMessage(chatId, mensajeAjuda);
             console.log(`Mensagem enviada para: ${numero}`);
         }
         return res.status(200).json({ status: "Sucesso", message: "Alertas enviados!" });
