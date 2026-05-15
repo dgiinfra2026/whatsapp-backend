@@ -91,6 +91,7 @@ app.post('/gerar-codigo', async (req, res) => {
 });
 
 // ROTA 3: Enviar Mensagem de Emergência
+// Rota de disparo atualizada e protegida contra o erro do 9º dígito
 app.post('/enviar-ajuda', async (req, res) => {
     if (whatsappStatus !== "CONECTADO") {
         return res.status(503).json({ status: "Erro", detalhe: "Nenhum WhatsApp conectado no servidor." });
@@ -101,10 +102,20 @@ app.post('/enviar-ajuda', async (req, res) => {
 
     try {
         for (let numero of numeros) {
-            await client.sendMessage(`${numero}@c.us`, mensagemAjuda);
+            // SOLUÇÃO: Pergunta ao WhatsApp qual é a ID interna real deste número
+            const numberId = await client.getNumberId(numero);
+            
+            if (numberId) {
+                // numberId._serialized já vem formatado perfeitamente (com ou sem o 9)
+                await client.sendMessage(numberId._serialized, mensagemAjuda);
+                console.log(`Mensagem enviada com sucesso para: ${numero}`);
+            } else {
+                console.log(`⚠️ O número ${numero} não foi reconhecido pelo WhatsApp.`);
+            }
         }
-        return res.status(200).json({ status: "Sucesso", message: "Alertas enviados!" });
+        return res.status(200).json({ status: "Sucesso", message: "Alertas processados com sucesso!" });
     } catch (error) {
+        console.error("Erro interno ao disparar mensagens:", error);
         return res.status(500).json({ status: "Erro", detalhe: error.message });
     }
 });
